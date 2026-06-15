@@ -1,0 +1,2 @@
+Meu projeto se chama "Gestão de clientes" e tem como objetivo criar um sistema para gerenciar informações de clientes, incluindo cadastro, atualização e exclusão de dados. O sistema deve ser fácil de usar e acessível para os usuários, permitindo que eles possam visualizar e editar as informações dos clientes de forma eficiente. Além disso, o sistema deve ser seguro e proteger as informações dos clientes contra acesso não autorizado.
+Use o nome PRD.md e salve na pasta docs.
