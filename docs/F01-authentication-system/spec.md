@@ -1,83 +1,67 @@
-# F01. Authentication System — Technical Specification
+# Technical Specification: F01 - Authentication System
 
 ## 1. Technical Overview
 
-**What:** Establishes the complete project scaffold (Spring Boot 3.5.x + Gradle), PostgreSQL connection via Spring Data JPA, user domain (entity, repository, service), Spring Security session-based authentication with role-based access control (`ROLE_ADMIN`, `ROLE_ATTENDANT`), and the Thymeleaf login UI with Bootstrap 5 styling.
+**What:** Implement stateful form-based authentication using Spring Security, backed by a PostgreSQL `users` table managed by Flyway. This covers the `SecurityConfig` bean, a `UserDetailsService` implementation, a JPA `User` entity, a `DataInitializer` for bootstrapping default users, a `LoginController` for the login page, and a Thymeleaf login template.
 
-**Why:** F01 is the Foundation feature. Every other feature in this project depends on the security layer, the JPA setup, and the Thymeleaf/Bootstrap base layout created here. Without this foundation, no protected route, role check, or session context can exist.
+**Why:** F01 is the Foundation feature — it establishes the security layer, database connection, JPA schema, and the secure routing layer that F02, F03, and F04 depend on. Spring Security's form login integrates natively with Thymeleaf via `thymeleaf-extras-springsecurity6` (already on the classpath) and provides session management, CSRF protection, and role-based access control without custom infrastructure.
 
 **Scope:**
 
-**Included:**
-- Project scaffolding: `build.gradle`, `application.properties`, Spring Boot main class
-- PostgreSQL data source and JPA/Hibernate configuration
-- `User` entity with email, BCrypt-hashed password, and role; `data.sql` seed with two default users
-- Spring Security configuration: form login, session management (2-hour timeout, session fixation protection), CSRF, role-based route authorization
-- `UserDetailsServiceImpl` that loads users from the database and maps roles to `GrantedAuthority`
-- Login page (Thymeleaf + Bootstrap 5): email/password fields, show/hide password toggle, loading feedback on submit, error and logout message display
-- Base Thymeleaf layout fragment reused by all feature templates
-- Dashboard stub page (protected, accessible to all authenticated roles)
-- Redirect to `/login` for any unauthenticated access to protected routes
+Included:
+- Login page (`GET /login`) and Spring Security form login filter (`POST /login`)
+- Session-based authentication with 2-hour inactivity timeout
+- bcrypt password encoding via `BCryptPasswordEncoder`
+- Role-based access control (`ADMIN`, `ATTENDANT`)
+- Flyway migration creating the `users` table schema
+- `DataInitializer` (`ApplicationRunner`) seeding one Admin and one Attendant on first startup, logging plain-text credentials
 
-**Excluded:**
-- User self-registration or password reset
+Excluded:
+- User registration or self-service password reset
+- User management UI (create/edit/delete users)
+- JWT or token-based authentication
 - Remember-me / persistent login
-- OAuth2 or SSO
-- User management UI (not in this feature's scope)
-
----
+- OAuth2 / SSO
 
 ## 2. Architecture Impact
 
 **Affected components:**
 
-| Layer | Component | Path |
-|-------|-----------|------|
-| Build | Gradle config | `build.gradle` |
-| Config | Application properties | `src/main/resources/application.properties` |
-| Config | Spring Security | `src/main/java/br/com/example/customers/config/SecurityConfig.java` |
-| Entry Point | Main class | `src/main/java/br/com/example/customers/CustomersApplication.java` |
-| Domain | User entity | `src/main/java/br/com/example/customers/domain/user/User.java` |
-| Domain | Role enum | `src/main/java/br/com/example/customers/domain/user/Role.java` |
-| Domain | User repository | `src/main/java/br/com/example/customers/domain/user/UserRepository.java` |
-| Service | UserDetailsService | `src/main/java/br/com/example/customers/service/UserDetailsServiceImpl.java` |
-| Controller | Auth routes | `src/main/java/br/com/example/customers/controller/AuthController.java` |
-| Controller | Dashboard route | `src/main/java/br/com/example/customers/controller/DashboardController.java` |
-| Template | Base layout | `src/main/resources/templates/layout/base.html` |
-| Template | Login page | `src/main/resources/templates/login.html` |
-| Template | Dashboard stub | `src/main/resources/templates/dashboard/index.html` |
-| Database | Seed data | `src/main/resources/data.sql` |
+- `src/main/java/br/com/example/sdd/customers/auth/SecurityConfig.java` — New
+- `src/main/java/br/com/example/sdd/customers/auth/UserDetailsServiceImpl.java` — New
+- `src/main/java/br/com/example/sdd/customers/auth/User.java` — New
+- `src/main/java/br/com/example/sdd/customers/auth/UserRepository.java` — New
+- `src/main/java/br/com/example/sdd/customers/auth/DataInitializer.java` — New
+- `src/main/java/br/com/example/sdd/customers/auth/LoginController.java` — New
+- `src/main/resources/templates/auth/login.html` — New
+- `src/main/resources/db/migration/V1__create_users.sql` — New
+- `src/main/resources/application.yaml` — Modified
 
 ```mermaid
 graph TD
-    A[User Browser] --> B["GET /login"]
-    A --> C["POST /login"]
-    C --> D[Spring Security Filter]
-    D --> E[UserDetailsServiceImpl]
-    E --> F[UserRepository]
-    F --> G[(PostgreSQL)]
-    D --> H{Credentials valid?}
-    H -- Yes --> I["Redirect to /dashboard"]
-    H -- No --> J["Redirect to /login?error"]
-    A --> K["GET /dashboard or other protected route"]
-    K --> L{Session valid?}
-    L -- No --> B
-    L -- Yes --> M[DashboardController]
-    M --> N["dashboard/index.html"]
+    A[User] --> B["GET /login (LoginController)"]
+    A --> C["POST /login (Spring Security Filter)"]
+    C --> D[UserDetailsServiceImpl]
+    D --> E[UserRepository]
+    E --> F[("users table (PostgreSQL)")]
+    C --> G{Auth Result}
+    G -->|success| H["/customers redirect"]
+    G -->|failure| I["/login?error redirect"]
+    J[DataInitializer] -->|startup seed| E
+    K[SecurityConfig] --> C
+    K --> L["All protected routes"]
+    L -->|unauthenticated| B
 ```
-
----
 
 ## 3. Technical Decisions
 
 | Decision | Chosen Approach | Alternative Considered | Trade-off |
 |----------|----------------|----------------------|-----------|
-| Session strategy | Spring Security default `HttpSession` (JSESSIONID cookie) | JWT stateless tokens | Simpler for SSR Thymeleaf apps; requires sticky sessions for multi-node deploy |
-| Password hashing | `BCryptPasswordEncoder` strength 10 | Argon2, PBKDF2 | BCrypt is Spring Security's built-in standard; strength 10 balances security and login latency |
-| Schema management | `spring.jpa.hibernate.ddl-auto=update` + `data.sql` | Flyway migrations | Simpler for a demo project; Flyway recommended for production |
-| Role representation | Single `VARCHAR(20)` column in `users` table | Separate `roles` join table | Sufficient for the two fixed roles (`ADMIN`, `ATTENDANT`) defined in the PRD |
-
----
+| Auth mechanism | Spring Security form login with stateful `HttpSession` | JWT/Bearer tokens | Sessions are simpler for Thymeleaf SSR; no client-side token management; works natively with Spring Security's CSRF support |
+| Migration tool | Flyway (`V1__create_users.sql`) | Liquibase / JPA `ddl-auto` | Flyway's SQL-first approach is explicit, version-controlled, and auto-runs on startup; simpler than Liquibase for this project size |
+| User seeding | `ApplicationRunner` `DataInitializer` logging plain passwords | Flyway seed migration with hardcoded hash | DataInitializer can generate fresh bcrypt hashes at runtime and is easier to adjust per environment; plain-password log aids developer onboarding |
+| Primary key | `BIGINT GENERATED BY DEFAULT AS IDENTITY` | UUID | Simpler for an internal system; Spring Boot JPA sequence generation works natively; UUID adds no meaningful benefit here |
+| Role representation | `VARCHAR(20)` column mapped to Java `enum Role` | Separate `roles` table | A two-value enum needs no join; the column value is the complete authority; promotes to a table if roles grow |
 
 ## 4. Component Overview
 
@@ -85,88 +69,73 @@ graph TD
 
 | File Path | New/Modified | Purpose | Key Responsibilities |
 |-----------|--------------|---------|---------------------|
-| `build.gradle` | New | Build configuration | Declare Spring Boot 3.5.x plugin; add dependencies: Spring Security, Thymeleaf, `thymeleaf-extras-springsecurity6`, Spring Data JPA, PostgreSQL driver, Lombok, Spring Boot Test |
-| `src/main/resources/application.properties` | New | Runtime configuration | DB URL, username, password; `spring.jpa.hibernate.ddl-auto=update`; `server.servlet.session.timeout=2h`; `spring.sql.init.mode=always` |
-| `src/main/java/br/com/example/customers/CustomersApplication.java` | New | Spring Boot entry point | `@SpringBootApplication` main class; no additional logic |
-| `src/main/java/br/com/example/customers/config/SecurityConfig.java` | New | Spring Security setup | Configure `SecurityFilterChain`: permit `/login`, `/css/**`, `/js/**`; require authentication for all other routes; set `loginPage("/login")`, `defaultSuccessUrl("/dashboard")`; configure logout to redirect to `/login?logout`; set `maximumSessions(1)` and session timeout; enable session fixation protection |
-| `src/main/java/br/com/example/customers/domain/user/User.java` | New | JPA entity | `@Entity`, `@Table(name = "users")`; implement `UserDetails`; fields: `id`, `email`, `password`, `role`, `active`, `createdAt`; derive `getAuthorities()` from `role` |
-| `src/main/java/br/com/example/customers/domain/user/Role.java` | New | Role enum | Values: `ADMIN`, `ATTENDANT`; used by `User` entity and Spring Security `hasRole()` checks |
-| `src/main/java/br/com/example/customers/domain/user/UserRepository.java` | New | Data access | `JpaRepository<User, Long>` with `Optional<User> findByEmail(String email)` |
-| `src/main/java/br/com/example/customers/service/UserDetailsServiceImpl.java` | New | Auth bridge | Implement `UserDetailsService`; call `userRepository.findByEmail(username)`; throw `UsernameNotFoundException` if absent; return the `User` entity directly (it implements `UserDetails`) |
-| `src/main/java/br/com/example/customers/controller/AuthController.java` | New | Login routes | `GET /login`: return `"login"` view; if already authenticated, redirect to `/dashboard` |
-| `src/main/java/br/com/example/customers/controller/DashboardController.java` | New | Dashboard route | `GET /dashboard`: return `"dashboard/index"` view; protected by security config |
+| `src/main/java/.../auth/SecurityConfig.java` | New | Spring Security configuration | Configure form login paths, success/failure URLs, session timeout, CSRF, public vs. protected routes, declare `PasswordEncoder` bean |
+| `src/main/java/.../auth/UserDetailsServiceImpl.java` | New | `UserDetailsService` implementation | Load `User` by email via `UserRepository`; map `Role` to `GrantedAuthority`; throw `UsernameNotFoundException` for unknown emails |
+| `src/main/java/.../auth/User.java` | New | JPA entity | Map `users` table columns; declare `Role` nested enum (`ADMIN`, `ATTENDANT`); use Lombok for boilerplate reduction |
+| `src/main/java/.../auth/UserRepository.java` | New | Spring Data JPA repository | Expose `findByEmail(String email): Optional<User>` |
+| `src/main/java/.../auth/DataInitializer.java` | New | Startup user seeder | On `ApplicationRunner.run`, check if `users` table is empty; if so, create one `ADMIN` and one `ATTENDANT` with bcrypt-encoded passwords; log both emails and plain-text passwords via `Logger` at `INFO` level |
+| `src/main/java/.../auth/LoginController.java` | New | MVC controller | Handle `GET /login`; return `"auth/login"` view name |
 
 **Frontend:**
 
 | File Path | New/Modified | Purpose | Key Responsibilities |
 |-----------|--------------|---------|---------------------|
-| `src/main/resources/templates/layout/base.html` | New | Base Thymeleaf layout | Bootstrap 5 CDN link and script tags; `<title>` slot; `layout:fragment="content"` insertion point; common navigation bar placeholder |
-| `src/main/resources/templates/login.html` | New | Login page | Standalone page (does not extend base layout); Bootstrap 5 centered card; `th:action="@{/login}"` POST form; `th:if="${param.error}"` error alert; `th:if="${param.logout}"` logout alert; show/hide password toggle using inline vanilla JS; submit button disabled and shows spinner via JS on form submit |
-| `src/main/resources/templates/dashboard/index.html` | New | Dashboard stub | Extends base layout; displays authenticated user's email and role via `sec:authentication`; placeholder content for F02 customer list |
+| `src/main/resources/templates/auth/login.html` | New | Login page | Email field; password field with show/hide toggle (client-side JS); submit button with loading-state CSS class on click; conditional error banner when `?error` is present in URL; use Thymeleaf `th:action`, `th:if`, CSRF hidden input |
 
 **Database:**
 
-| File | Tables Affected | Operation | Notes |
-|------|-----------------|-----------|-------|
-| `src/main/resources/data.sql` | `users` | INSERT | Two seed rows: `admin@example.com` (ADMIN) and `atendente@example.com` (ATTENDANT); `ON CONFLICT (email) DO NOTHING` to be idempotent; BCrypt hashes pre-generated at strength 10 |
+| Migration File | Tables Affected | Operation | Notes |
+|----------------|-----------------|-----------|-------|
+| `src/main/resources/db/migration/V1__create_users.sql` | `users` | CREATE | Schema only — no seed data; seeding is the DataInitializer's responsibility |
 
----
+**Configuration:**
+
+| File | New/Modified | Changes |
+|------|-------------|---------|
+| `src/main/resources/application.yaml` | Modified | Add `spring.datasource`, `spring.jpa.open-in-view: false`, `spring.flyway.enabled: true`, `server.servlet.session.timeout: 7200s` |
+| `build.gradle` | Modified | Add `implementation 'org.flywaydb:flyway-core'` and `runtimeOnly 'org.flywaydb:flyway-database-postgresql'` |
 
 ## 5. API Contracts
 
-This feature uses server-side rendering exclusively. There are no JSON REST endpoints; all interactions are Thymeleaf form submissions and Spring MVC route handlers.
+**Endpoint: Show Login Page**
 
----
-
-**Route: Login Page**
 - **Method:** GET
 - **Path:** `/login`
 - **Authentication:** None (public)
-- **Controller:** `AuthController`
-
-| Behavior condition | Result |
-|-------------------|--------|
-| No query params | Render `login.html` clean |
-| `?error` present | Render `login.html` with error alert: "Invalid email or password." |
-| `?logout` present | Render `login.html` with info alert: "You have been logged out." |
-| User already authenticated | Redirect to `/dashboard` |
+- **Response:** `200 OK` — renders `auth/login` Thymeleaf view
 
 ---
 
-**Route: Login Submit**
+**Endpoint: Process Login (Spring Security native filter)**
+
 - **Method:** POST
 - **Path:** `/login`
-- **Authentication:** None (handled by Spring Security filter)
-- **Form fields:** `username` (email value), `password`
+- **Authentication:** None (public — processed by `UsernamePasswordAuthenticationFilter` before reaching any controller)
+- **Content-Type:** `application/x-www-form-urlencoded`
 
-| Outcome | Redirect |
-|---------|----------|
-| Credentials valid | `/dashboard` |
-| Credentials invalid | `/login?error` |
+**Request Fields:**
 
----
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `username` | `string` | Yes | User's email address (Spring Security default parameter name) |
+| `password` | `string` | Yes | User's plaintext password |
+| `_csrf` | `string` | Yes | CSRF token injected by Thymeleaf `th:action` |
 
-**Route: Logout**
-- **Method:** POST
-- **Path:** `/logout`
-- **Authentication:** Required (valid session, CSRF token)
-- **Handled by:** Spring Security `LogoutFilter`
-- **On success:** Redirect to `/login?logout`; session invalidated; JSESSIONID cookie cleared
+**Responses:**
 
----
+| Outcome | HTTP Status | Redirect | Notes |
+|---------|-------------|----------|-------|
+| Valid credentials | `302 Found` | `/customers` | Session cookie set |
+| Invalid credentials | `302 Found` | `/login?error` | Generic — same message for unknown email and wrong password |
+| Empty fields | `302 Found` | `/login?error` | Spring Security treats blank credentials as auth failure |
+| Unauthenticated access to any protected route | `302 Found` | `/login` | Spring Security `ExceptionTranslationFilter` |
 
-**Route: Dashboard**
-- **Method:** GET
-- **Path:** `/dashboard`
-- **Authentication:** Required (any role: `ADMIN` or `ATTENDANT`)
-- **Controller:** `DashboardController`
+**Error Codes:**
 
-| Behavior condition | Result |
-|-------------------|--------|
-| Valid session | Render `dashboard/index.html` |
-| No session / expired | Redirect to `/login` |
-
----
+| Scenario | User-Visible Message |
+|----------|----------------------|
+| `?error` param present on `/login` | "Invalid email or password" |
+| Empty email or password | Field-level HTML5 `required` validation (client-side) |
 
 ## 6. Data Model
 
@@ -174,77 +143,79 @@ This feature uses server-side rendering exclusively. There are no JSON REST endp
 
 | Column | Type | Nullable | Default | Description |
 |--------|------|----------|---------|-------------|
-| `id` | `BIGSERIAL` | No | auto-increment | Primary key |
+| `id` | `BIGINT` | No | `GENERATED BY DEFAULT AS IDENTITY` | Primary key |
 | `email` | `VARCHAR(255)` | No | — | Unique login identifier |
-| `password` | `VARCHAR(255)` | No | — | BCrypt-hashed password (never plain text) |
+| `password` | `VARCHAR(255)` | No | — | bcrypt-hashed password (60-char output) |
 | `role` | `VARCHAR(20)` | No | — | `ADMIN` or `ATTENDANT` |
-| `active` | `BOOLEAN` | No | `TRUE` | Account enabled flag; `false` locks login |
-| `created_at` | `TIMESTAMP` | No | `NOW()` | Record creation timestamp |
+| `created_at` | `TIMESTAMPTZ` | No | `NOW()` | Record creation timestamp |
 
 **Indexes:**
 
 | Index Name | Columns | Type | Purpose |
 |------------|---------|------|---------|
-| `pk_users` | `id` | PRIMARY KEY | Row identity |
-| `uq_users_email` | `email` | UNIQUE | Enforce unique login; optimize `findByEmail` lookup |
+| `users_pkey` | `id` | btree (PK) | Primary key lookup |
+| `users_email_unique` | `email` | btree (UNIQUE) | Prevent duplicate accounts; fast lookup by email on every login |
 
 **Constraints:**
 
 | Constraint | Type | Definition | Purpose |
 |------------|------|------------|---------|
-| `pk_users` | PRIMARY KEY | `id` | Unique row identifier |
-| `uq_users_email` | UNIQUE | `email` | One account per email address |
-| `chk_users_role` | CHECK | `role IN ('ADMIN', 'ATTENDANT')` | Reject invalid role values at DB level |
+| `users_pkey` | PRIMARY KEY | `id` | Unique row identifier |
+| `users_email_unique` | UNIQUE | `email` | One account per email address |
 
-**Seed (data.sql):**
+**Migration — `V1__create_users.sql`:**
+
 ```sql
--- Passwords are 'admin123' and 'atendente123' encoded with BCryptPasswordEncoder(10)
-INSERT INTO users (email, password, role, active) VALUES
-('admin@example.com',      '$2a$10$REPLACE_WITH_GENERATED_HASH', 'ADMIN',     TRUE),
-('atendente@example.com',  '$2a$10$REPLACE_WITH_GENERATED_HASH', 'ATTENDANT', TRUE)
-ON CONFLICT (email) DO NOTHING;
+CREATE TABLE users (
+    id         BIGINT       GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    email      VARCHAR(255) NOT NULL,
+    password   VARCHAR(255) NOT NULL,
+    role       VARCHAR(20)  NOT NULL,
+    created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    CONSTRAINT users_email_unique UNIQUE (email)
+);
 ```
-> BCrypt hashes must be generated before committing. Use a one-time runner or `BCryptPasswordEncoder.encode("admin123")` in a scratch test.
-
----
 
 ## 7. Testing Strategy
 
-**Test File Structure:**
+**Test Files:**
 
 | Test File | Test Type | Target | Coverage Goal |
 |-----------|-----------|--------|---------------|
-| `src/test/java/br/com/example/customers/service/UserDetailsServiceImplTest.java` | Unit | `UserDetailsServiceImpl` | User loading and authority mapping |
-| `src/test/java/br/com/example/customers/controller/AuthControllerTest.java` | Integration | Login flow | Login success, failure, redirects, error messages |
-| `src/test/java/br/com/example/customers/config/SecurityConfigTest.java` | Integration | Route authorization | Protected and public route access rules |
+| `src/test/.../auth/SecurityConfigTest.java` | Integration (`@SpringBootTest` + Testcontainers) | Route protection and session rules | Public routes accessible, protected routes redirect to login |
+| `src/test/.../auth/LoginControllerTest.java` | Integration (`@SpringBootTest` + MockMvc + Testcontainers) | Login page display and auth flow | All credential scenarios and redirect behavior |
+| `src/test/.../auth/DataInitializerTest.java` | Integration (`@SpringBootTest` + Testcontainers) | User seeding correctness and idempotency | Correct users created; no duplicates on repeated runs |
 
-**UserDetailsServiceImplTest:**
-
-| Test Function | Description | Assertions |
-|---------------|-------------|------------|
-| `testLoadUserByEmailReturnsUserDetails` | Valid email found in DB | Returns `UserDetails`; `getUsername()` equals email |
-| `testLoadUserByEmailThrowsWhenNotFound` | Unknown email | Throws `UsernameNotFoundException` |
-| `testAdminRoleMapsToRoleAdminAuthority` | User with role `ADMIN` | `getAuthorities()` contains `ROLE_ADMIN` |
-| `testAttendantRoleMapsToRoleAttendantAuthority` | User with role `ATTENDANT` | `getAuthorities()` contains `ROLE_ATTENDANT` |
-| `testInactiveUserIsDisabled` | User with `active = false` | `isEnabled()` returns `false` |
-
-**AuthControllerTest:**
+**SecurityConfigTest.java:**
 
 | Test Function | Description | Assertions |
 |---------------|-------------|------------|
-| `testGetLoginPageReturns200` | `GET /login` unauthenticated | Status 200; body contains login form |
-| `testLoginWithValidCredentialsRedirectsToDashboard` | `POST /login` with correct credentials | Status 302; redirect to `/dashboard` |
-| `testLoginWithInvalidCredentialsRedirectsToLoginError` | `POST /login` with wrong password | Status 302; redirect to `/login?error` |
-| `testLoginPageShowsErrorMessageWhenErrorParamPresent` | `GET /login?error` | Status 200; response contains "Invalid email or password" |
-| `testLoginPageShowsLogoutMessageWhenLogoutParamPresent` | `GET /login?logout` | Status 200; response contains logout confirmation text |
-| `testPasswordNotStoredInPlainText` | Inspect seeded user via `UserRepository` | Stored password starts with `$2a$` |
+| `unauthenticatedAccessToProtectedRouteRedirectsToLogin` | `GET /customers` without session | `302` → `/login` |
+| `loginPageIsPublicAndReturnsOk` | `GET /login` without session | `200 OK` |
+| `authenticatedAdminCanAccessProtectedRoute` | `GET /customers` with `ADMIN` session | `200 OK` (or not `302`) |
+| `authenticatedAttendantCanAccessProtectedRoute` | `GET /customers` with `ATTENDANT` session | `200 OK` (or not `302`) |
+| `logoutInvalidatesSession` | `POST /logout` then `GET /customers` | `302` → `/login` |
 
-**SecurityConfigTest:**
+**LoginControllerTest.java:**
 
 | Test Function | Description | Assertions |
 |---------------|-------------|------------|
-| `testUnauthenticatedAccessToDashboardRedirectsToLogin` | `GET /dashboard` without session | Status 302; redirect location contains `/login` |
-| `testAuthenticatedAdminCanAccessDashboard` | `GET /dashboard` with `ROLE_ADMIN` mock user | Status 200 |
-| `testAuthenticatedAttendantCanAccessDashboard` | `GET /dashboard` with `ROLE_ATTENDANT` mock user | Status 200 |
-| `testLoginPageIsPubliclyAccessible` | `GET /login` without session | Status 200 (not redirected) |
-| `testLogoutInvalidatesSession` | `POST /logout` with valid session | Status 302; redirect to `/login?logout`; session invalidated |
+| `getLoginReturnsLoginView` | `GET /login` | `200`, view name is `auth/login` |
+| `getLoginWithErrorParamShowsErrorMessage` | `GET /login?error` | `200`, response body contains error message text |
+| `postLoginWithValidCredentialsRedirectsToCustomers` | `POST /login` with seeded admin credentials | `302` → `/customers` |
+| `postLoginWithWrongPasswordRedirectsToError` | `POST /login` with correct email, wrong password | `302` → `/login?error` |
+| `postLoginWithUnknownEmailRedirectsToError` | `POST /login` with non-existent email | `302` → `/login?error` |
+| `postLoginWithBlankFieldsRedirectsToError` | `POST /login` with empty username/password | `302` → `/login?error` |
+
+**DataInitializerTest.java:**
+
+| Test Function | Description | Assertions |
+|---------------|-------------|------------|
+| `createsAdminAndAttendantOnEmptyDatabase` | Context loads with empty `users` table | Exactly 2 users created; one has role `ADMIN`, one has role `ATTENDANT`; both passwords pass `BCryptPasswordEncoder.matches` |
+| `doesNotCreateDuplicatesWhenUsersAlreadyExist` | Context loads twice (or pre-populated table) | User count remains 2; no `DataIntegrityViolationException` |
+
+**Cross-Feature Integration (from PRD Section 9):**
+
+| Test | Location | Description |
+|------|----------|-------------|
+| Authenticated session from F01 permits/denies F04 management actions | F04 spec | Verified when F04 is implemented using Spring Security `@WithMockUser` or test login |
