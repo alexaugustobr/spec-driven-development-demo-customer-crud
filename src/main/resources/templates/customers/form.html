@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${customer.id == null} ? 'Novo Cliente' : 'Editar Cliente' + ' - Gestão de Clientes'">Cliente - Gestão de Clientes</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f3f4f6;
+            min-height: 100vh;
+        }
+        .header {
+            background: #fff;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .header h1 { font-size: 1.25rem; color: #111827; }
+        .header-actions { display: flex; gap: .75rem; align-items: center; }
+        .btn-secondary {
+            padding: .5rem 1rem;
+            background: #fff;
+            color: #374151;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: .875rem;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+        }
+        .btn-secondary:hover { background: #f9fafb; }
+        .btn-danger {
+            padding: .5rem 1rem;
+            background: #ef4444;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: .875rem;
+            font-weight: 500;
+            cursor: pointer;
+        }
+        .btn-danger:hover { background: #dc2626; }
+        .container {
+            max-width: 720px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+        .card {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,.12);
+            padding: 2rem;
+        }
+        .alert-success {
+            background: #ecfdf5;
+            border-left: 4px solid #10b981;
+            color: #065f46;
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 1.5rem;
+            font-size: .9rem;
+        }
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+        .form-group label {
+            display: block;
+            font-size: .875rem;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: .375rem;
+        }
+        .form-group input {
+            width: 100%;
+            padding: .625rem .75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 1rem;
+            transition: border-color .15s, box-shadow .15s;
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37,99,235,.15);
+        }
+        .form-group input.field-error {
+            border-color: #ef4444;
+        }
+        .field-error-msg {
+            color: #dc2626;
+            font-size: .8rem;
+            margin-top: .25rem;
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+        .form-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #e5e7eb;
+        }
+        .form-actions-right {
+            display: flex;
+            gap: .75rem;
+        }
+        .btn-primary {
+            padding: .625rem 1.5rem;
+            background: #2563eb;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: .9rem;
+            font-weight: 500;
+            cursor: pointer;
+        }
+        .btn-primary:hover { background: #1d4ed8; }
+        .global-error {
+            background: #fef2f2;
+            border-left: 4px solid #ef4444;
+            color: #991b1b;
+            padding: .75rem 1rem;
+            border-radius: 6px;
+            margin-bottom: 1.5rem;
+            font-size: .875rem;
+        }
+        .spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(0,0,0,.1);
+            border-top: 2px solid #6b7280;
+            border-radius: 50%;
+            animation: spin .6s linear infinite;
+            vertical-align: middle;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-box {
+            background: #fff;
+            border-radius: 12px;
+            padding: 2rem;
+            max-width: 420px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0,0,0,.3);
+            text-align: center;
+        }
+        .modal-box h3 {
+            font-size: 1.125rem;
+            color: #111827;
+            margin-bottom: .75rem;
+        }
+        .modal-box p {
+            font-size: .9rem;
+            color: #6b7280;
+            margin-bottom: 1.5rem;
+        }
+        .modal-actions {
+            display: flex;
+            gap: .75rem;
+            justify-content: center;
+        }
+        .btn-cancel {
+            padding: .5rem 1.25rem;
+            background: #fff;
+            color: #374151;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: .875rem;
+            font-weight: 500;
+            cursor: pointer;
+        }
+        .btn-cancel:hover { background: #f9fafb; }
+    </style>
+</head>
+<body>
+<div class="header">
+    <h1 th:text="${customer.id == null} ? 'Novo Cliente' : 'Editar Cliente'">Novo Cliente</h1>
+    <div class="header-actions">
+        <a href="/customers" class="btn-secondary">Voltar para lista</a>
+    </div>
+</div>
+
+<div class="container">
+    <div th:if="${successMessage}" class="alert-success" th:text="${successMessage}"></div>
+
+    <div class="card">
+        <form th:action="@{${customer.id == null} ? '/customers' : '/customers/' + ${customer.id}}"
+              th:object="${customer}" method="post">
+            <input type="hidden" th:if="${customer.id != null}" th:field="*{id}" />
+
+            <div th:if="${#fields.hasGlobalErrors()}" class="global-error"
+                 th:each="err : ${#fields.globalErrors()}" th:text="${err}"></div>
+
+            <div class="form-group">
+                <label for="name">Nome</label>
+                <input type="text" id="name" th:field="*{name}"
+                       th:classappend="${#fields.hasErrors('name')} ? 'field-error'"
+                       placeholder="Nome completo">
+                <div th:if="${#fields.hasErrors('name')}" th:errors="*{name}" class="field-error-msg"></div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="email">E-mail</label>
+                    <input type="email" id="email" th:field="*{email}"
+                           th:classappend="${#fields.hasErrors('email')} ? 'field-error'"
+                           placeholder="email@exemplo.com">
+                    <div th:if="${#fields.hasErrors('email')}" th:errors="*{email}" class="field-error-msg"></div>
+                </div>
+                <div class="form-group">
+                    <label for="document">CPF/CNPJ</label>
+                    <input type="text" id="document" th:field="*{document}"
+                           th:classappend="${#fields.hasErrors('document')} ? 'field-error'"
+                           placeholder="000.000.000-00">
+                    <div th:if="${#fields.hasErrors('document')}" th:errors="*{document}" class="field-error-msg"></div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="phone">Telefone</label>
+                <input type="text" id="phone" th:field="*{phone}"
+                       th:classappend="${#fields.hasErrors('phone')} ? 'field-error'"
+                       placeholder="(00) 00000-0000">
+                <div th:if="${#fields.hasErrors('phone')}" th:errors="*{phone}" class="field-error-msg"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="zipCode">CEP</label>
+                <input type="text" id="zipCode" th:field="*{zipCode}"
+                       th:classappend="${#fields.hasErrors('zipCode')} ? 'field-error'"
+                       placeholder="00000-000" maxlength="9">
+                <div th:if="${#fields.hasErrors('zipCode')}" th:errors="*{zipCode}" class="field-error-msg"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="street">Logradouro</label>
+                <input type="text" id="street" th:field="*{street}"
+                       th:classappend="${#fields.hasErrors('street')} ? 'field-error'"
+                       placeholder="Rua, Avenida...">
+                <div th:if="${#fields.hasErrors('street')}" th:errors="*{street}" class="field-error-msg"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="neighborhood">Bairro</label>
+                <input type="text" id="neighborhood" th:field="*{neighborhood}"
+                       th:classappend="${#fields.hasErrors('neighborhood')} ? 'field-error'"
+                       placeholder="Bairro">
+                <div th:if="${#fields.hasErrors('neighborhood')}" th:errors="*{neighborhood}" class="field-error-msg"></div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="city">Cidade</label>
+                    <input type="text" id="city" th:field="*{city}"
+                           th:classappend="${#fields.hasErrors('city')} ? 'field-error'"
+                           placeholder="Cidade">
+                    <div th:if="${#fields.hasErrors('city')}" th:errors="*{city}" class="field-error-msg"></div>
+                </div>
+                <div class="form-group">
+                    <label for="state">Estado</label>
+                    <input type="text" id="state" th:field="*{state}"
+                           th:classappend="${#fields.hasErrors('state')} ? 'field-error'"
+                           placeholder="UF" maxlength="2">
+                    <div th:if="${#fields.hasErrors('state')}" th:errors="*{state}" class="field-error-msg"></div>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <div>
+                    <button type="button" th:if="${customer.id != null and isAdmin}"
+                            class="btn-danger" onclick="openDeleteModal()">Excluir</button>
+                </div>
+                <div class="form-actions-right">
+                    <a href="/customers" class="btn-secondary">Cancelar</a>
+                    <button type="submit" class="btn-primary" th:text="${customer.id == null} ? 'Salvar' : 'Atualizar'">Salvar</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<th:block th:if="${customer.id != null and isAdmin}">
+    <div id="deleteModal" class="modal-overlay">
+        <div class="modal-box">
+            <h3>Confirmar exclusão</h3>
+            <p>Tem certeza que deseja excluir permanentemente este cliente? Esta ação não pode ser desfeita.</p>
+            <div class="modal-actions">
+                <button type="button" class="btn-cancel" onclick="closeDeleteModal()">Cancelar</button>
+                <form th:action="@{'/customers/' + ${customer.id} + '/delete'}" method="post">
+                    <button type="submit" class="btn-danger">Sim, excluir</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function openDeleteModal() {
+            document.getElementById('deleteModal').classList.add('active');
+        }
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').classList.remove('active');
+        }
+        document.getElementById('deleteModal').addEventListener('click', function(e) {
+            if (e.target === this) closeDeleteModal();
+        });
+    </script>
+</th:block>
+
+<script src="/js/cep.js"></script>
+</body>
+</html>
