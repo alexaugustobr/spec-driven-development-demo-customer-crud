@@ -38,7 +38,7 @@ class SecurityConfigTest {
     void unauthenticatedAccessToProtectedRouteRedirectsToLogin() throws Exception {
         mockMvc.perform(get("/customers"))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrlPattern("**/login"));
+                .andExpect(redirectedUrl("/login"));
     }
 
     @Test
@@ -70,6 +70,6 @@ class SecurityConfigTest {
 
         mockMvc.perform(get("/customers"))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrlPattern("**/login"));
+                .andExpect(redirectedUrl("/login"));
     }
 }

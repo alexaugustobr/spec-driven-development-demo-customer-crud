@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clientes - Gestão de Clientes</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f3f4f6;
+            min-height: 100vh;
+        }
+        .header {
+            background: #fff;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .header h1 { font-size: 1.25rem; color: #111827; }
+        .logout-btn {
+            padding: .5rem 1rem;
+            background: #ef4444;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: .875rem;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .logout-btn:hover { background: #dc2626; }
+        .container {
+            max-width: 1100px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+        .card {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,.12);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .search-form {
+            display: flex;
+            gap: .75rem;
+        }
+        .search-input {
+            flex: 1;
+            padding: .625rem .75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 1rem;
+            transition: border-color .15s, box-shadow .15s;
+        }
+        .search-input:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37,99,235,.15);
+        }
+        .search-btn {
+            padding: .625rem 1.25rem;
+            background: #2563eb;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: .9rem;
+            font-weight: 500;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .search-btn:hover { background: #1d4ed8; }
+        .clear-btn {
+            padding: .625rem 1rem;
+            background: #fff;
+            color: #6b7280;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: .9rem;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+        }
+        .clear-btn:hover { background: #f9fafb; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th {
+            text-align: left;
+            padding: .75rem .5rem;
+            font-size: .75rem;
+            font-weight: 600;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            border-bottom: 1px solid #e5e7eb;
+            white-space: nowrap;
+        }
+        th a {
+            color: #6b7280;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: .25rem;
+        }
+        th a:hover { color: #374151; }
+        .sort-indicator { font-size: .7rem; }
+        td {
+            padding: .75rem .5rem;
+            font-size: .875rem;
+            color: #374151;
+            border-bottom: 1px solid #f3f4f6;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        tr:last-child td { border-bottom: none; }
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: #9ca3af;
+        }
+        .empty-state-icon { font-size: 3rem; margin-bottom: 1rem; }
+        .empty-state p { font-size: 1rem; margin-bottom: .5rem; }
+        .pagination {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: .375rem;
+            flex-wrap: wrap;
+        }
+        .page-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 2.25rem;
+            height: 2.25rem;
+            padding: 0 .5rem;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            color: #374151;
+            font-size: .875rem;
+            text-decoration: none;
+            transition: background .15s;
+        }
+        .page-link:hover { background: #f3f4f6; }
+        .page-link.active {
+            background: #2563eb;
+            color: #fff;
+            border-color: #2563eb;
+        }
+        .page-link.disabled {
+            color: #d1d5db;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        .page-ellipsis {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 2.25rem;
+            height: 2.25rem;
+            color: #9ca3af;
+            font-size: .875rem;
+        }
+        .page-info {
+            text-align: center;
+            color: #6b7280;
+            font-size: .8rem;
+            margin-top: .75rem;
+        }
+    </style>
+</head>
+<body>
+<div class="header">
+    <h1>Gestão de Clientes</h1>
+    <form th:action="@{/logout}" method="post" style="margin:0;">
+        <button type="submit" class="logout-btn">Sair</button>
+    </form>
+</div>
+
+<div class="container">
+    <div class="card">
+        <form th:action="@{/customers}" method="get" class="search-form">
+            <input type="text" name="q" class="search-input"
+                   th:value="${q}" placeholder="Buscar por nome, CPF/CNPJ ou e-mail...">
+            <button type="submit" class="search-btn">Buscar</button>
+            <a th:if="${!q.isEmpty()}" th:href="@{/customers}" class="clear-btn">Limpar</a>
+        </form>
+    </div>
+
+    <div class="card" style="padding: 0; overflow: hidden;">
+        <!-- Empty state -->
+        <th:block th:if="${page.totalElements == 0}">
+            <div class="empty-state">
+                <div class="empty-state-icon">&#128269;</div>
+                <p><strong>Nenhum cliente encontrado</strong></p>
+                <p th:if="${!q.isEmpty()}">Nenhum resultado para <strong th:text="${q}"></strong>.</p>
+                <p th:unless="${!q.isEmpty()}">Nenhum cliente cadastrado no sistema.</p>
+            </div>
+        </th:block>
+
+        <!-- Table -->
+        <th:block th:unless="${page.totalElements == 0}">
+            <table>
+                <thead>
+                <tr>
+                    <th>
+                        <a th:href="@{/customers(q=${q}, sort='name', dir=${sort == 'name' ? (dir == 'asc' ? 'desc' : 'asc') : 'asc'}, page=0)}">
+                            Nome
+                            <span class="sort-indicator" th:if="${sort == 'name'}" th:text="${dir == 'asc'} ? '▲' : '▼'"></span>
+                        </a>
+                    </th>
+                    <th>E-mail</th>
+                    <th>Documento</th>
+                    <th>Telefone</th>
+                    <th>Cidade</th>
+                    <th>UF</th>
+                    <th>
+                        <a th:href="@{/customers(q=${q}, sort='createdAt', dir=${sort == 'createdAt' ? (dir == 'asc' ? 'desc' : 'asc') : 'asc'}, page=0)}">
+                            Data de Cadastro
+                            <span class="sort-indicator" th:if="${sort == 'createdAt'}" th:text="${dir == 'asc'} ? '▲' : '▼'"></span>
+                        </a>
+                    </th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="customer : ${page.content}">
+                    <td th:text="${customer.name}">Nome</td>
+                    <td th:text="${customer.email}">email@exemplo.com</td>
+                    <td th:text="${customer.document}">000.000.000-00</td>
+                    <td th:text="${customer.phone}">(00) 00000-0000</td>
+                    <td th:text="${customer.city}">Cidade</td>
+                    <td th:text="${customer.state}">UF</td>
+                    <td th:text="${#temporals.format(customer.createdAt, 'dd/MM/yyyy HH:mm')}">01/01/2024 12:00</td>
+                </tr>
+                </tbody>
+            </table>
+        </th:block>
+    </div>
+
+    <th:block th:if="${page.totalPages > 1}">
+        <div class="pagination">
+            <!-- Previous -->
+            <a th:if="${page.hasPrevious}"
+               th:href="@{/customers(q=${q}, sort=${sort}, dir=${dir}, page=${page.number - 1})}"
+               class="page-link">&laquo; Anterior</a>
+            <span th:unless="${page.hasPrevious}" class="page-link disabled">&laquo; Anterior</span>
+
+            <!-- Page numbers (compact range) -->
+            <th:block th:with="totalPages=${page.totalPages}, current=${page.number},
+                start=${(current - 2 < 0) ? 0 : (current - 2)},
+                end=${(current + 3 > totalPages) ? totalPages : (current + 3)}">
+
+                <a th:if="${start > 0}"
+                   th:href="@{/customers(q=${q}, sort=${sort}, dir=${dir}, page=0)}"
+                   class="page-link">1</a>
+                <span th:if="${start > 1}" class="page-ellipsis">&hellip;</span>
+
+                <a th:each="i : ${#numbers.sequence(start, end - 1)}"
+                   th:href="@{/customers(q=${q}, sort=${sort}, dir=${dir}, page=${i})}"
+                   th:text="${i + 1}"
+                   th:classappend="${i == current} ? 'active'"
+                   class="page-link"></a>
+
+                <span th:if="${end < totalPages}" class="page-ellipsis">&hellip;</span>
+                <a th:if="${end < totalPages}"
+                   th:href="@{/customers(q=${q}, sort=${sort}, dir=${dir}, page=${totalPages - 1})}"
+                   th:text="${totalPages}"
+                   class="page-link"></a>
+            </th:block>
+
+            <!-- Next -->
+            <a th:if="${page.hasNext}"
+               th:href="@{/customers(q=${q}, sort=${sort}, dir=${dir}, page=${page.number + 1})}"
+               class="page-link">Próximo &raquo;</a>
+            <span th:unless="${page.hasNext}" class="page-link disabled">Próximo &raquo;</span>
+        </div>
+        <div class="page-info">
+            Página <span th:text="${page.number + 1}"></span> de <span th:text="${page.totalPages}"></span>
+            &mdash; <span th:text="${page.totalElements}"></span> cliente(s)
+        </div>
+    </th:block>
+</div>
+</body>
+</html>

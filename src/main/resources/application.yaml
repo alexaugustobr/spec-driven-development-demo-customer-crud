@@ -3,8 +3,8 @@ spring:
     name: customers
   jpa:
     open-in-view: false
-  flyway:
-    enabled: true
+    hibernate:
+      ddl-auto: update
 
 server:
   servlet:
