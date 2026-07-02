@@ -4,7 +4,10 @@ spring:
   jpa:
     open-in-view: false
     hibernate:
-      ddl-auto: update
+      ddl-auto: none
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
 
 server:
   servlet:
