@@ -19,6 +19,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Import(TestcontainersConfiguration.class)
 class CustomerRepositoryTest {
 
+    private static final String VALID_CPF_1 = generateValidCpf(1);
+    private static final String VALID_CPF_2 = generateValidCpf(2);
+
     @Autowired
     private CustomerRepository customerRepository;
 
@@ -39,49 +42,19 @@ class CustomerRepositoryTest {
 
     @Test
     void findByDocumentReturnsExactMatch() {
-        Customer customer = Customer.builder()
-                .name("Joao")
-                .email("joao@example.com")
-                .document("12345678901")
-                .phone("11988887777")
-                .zipCode("01310200")
-                .street("Avenida Paulista")
-                .neighborhood("Bela Vista")
-                .city("Sao Paulo")
-                .state("SP")
-                .build();
+        Customer customer = buildCustomer("Joao", "joao@example.com", VALID_CPF_1, "Avenida Paulista", "Bela Vista");
         customerRepository.save(customer);
 
-        Page<Customer> result = customerRepository.findByDocument("12345678901", PageRequest.of(0, 20));
+        Page<Customer> result = customerRepository.findByDocument(VALID_CPF_1, PageRequest.of(0, 20));
 
         assertThat(result.getTotalElements()).isEqualTo(1);
-        assertThat(result.getContent().get(0).getDocument()).isEqualTo("12345678901");
+        assertThat(result.getContent().get(0).getDocument()).isEqualTo(VALID_CPF_1);
     }
 
     @Test
     void findByNameContainingIgnoreCaseIsPartialAndCaseInsensitive() {
-        Customer joao = Customer.builder()
-                .name("Joao Silva")
-                .email("joao@example.com")
-                .document("11111111111")
-                .phone("11988887777")
-                .zipCode("01310200")
-                .street("Avenida Paulista")
-                .neighborhood("Bela Vista")
-                .city("Sao Paulo")
-                .state("SP")
-                .build();
-        Customer jose = Customer.builder()
-                .name("Jose Santos")
-                .email("jose@example.com")
-                .document("22222222222")
-                .phone("11988887777")
-                .zipCode("01310200")
-                .street("Rua Augusta")
-                .neighborhood("Consolacao")
-                .city("Sao Paulo")
-                .state("SP")
-                .build();
+        Customer joao = buildCustomer("Joao Silva", "joao@example.com", VALID_CPF_1, "Avenida Paulista", "Bela Vista");
+        Customer jose = buildCustomer("Jose Santos", "jose@example.com", VALID_CPF_2, "Rua Augusta", "Consolacao");
         customerRepository.saveAll(List.of(joao, jose));
 
         Page<Customer> result = customerRepository.findByNameContainingIgnoreCase("jo", PageRequest.of(0, 20));
@@ -91,17 +64,7 @@ class CustomerRepositoryTest {
 
     @Test
     void findByEmailContainingIgnoreCaseIsPartial() {
-        Customer customer = Customer.builder()
-                .name("Joao")
-                .email("joao@example.com")
-                .document("11111111111")
-                .phone("11988887777")
-                .zipCode("01310200")
-                .street("Avenida Paulista")
-                .neighborhood("Bela Vista")
-                .city("Sao Paulo")
-                .state("SP")
-                .build();
+        Customer customer = buildCustomer("Joao", "joao@example.com", VALID_CPF_1, "Avenida Paulista", "Bela Vista");
         customerRepository.save(customer);
 
         Page<Customer> result = customerRepository.findByEmailContainingIgnoreCase(
@@ -113,28 +76,8 @@ class CustomerRepositoryTest {
 
     @Test
     void findAllSortedByNameAscending() {
-        Customer zara = Customer.builder()
-                .name("Zara")
-                .email("zara@example.com")
-                .document("11111111111")
-                .phone("11988887777")
-                .zipCode("01310200")
-                .street("Rua A")
-                .neighborhood("Bela Vista")
-                .city("Sao Paulo")
-                .state("SP")
-                .build();
-        Customer ana = Customer.builder()
-                .name("Ana")
-                .email("ana@example.com")
-                .document("22222222222")
-                .phone("11988887777")
-                .zipCode("01310200")
-                .street("Rua B")
-                .neighborhood("Consolacao")
-                .city("Sao Paulo")
-                .state("SP")
-                .build();
+        Customer zara = buildCustomer("Zara", "zara@example.com", VALID_CPF_1, "Rua A", "Bela Vista");
+        Customer ana = buildCustomer("Ana", "ana@example.com", VALID_CPF_2, "Rua B", "Consolacao");
         customerRepository.saveAll(List.of(zara, ana));
 
         Page<Customer> result = customerRepository.findAll(
@@ -149,7 +92,7 @@ class CustomerRepositoryTest {
         Customer older = Customer.builder()
                 .name("Older")
                 .email("older@example.com")
-                .document("11111111111")
+                .document(VALID_CPF_1)
                 .phone("11988887777")
                 .zipCode("01310200")
                 .street("Rua A")
@@ -161,7 +104,7 @@ class CustomerRepositoryTest {
         Customer newer = Customer.builder()
                 .name("Newer")
                 .email("newer@example.com")
-                .document("22222222222")
+                .document(VALID_CPF_2)
                 .phone("11988887777")
                 .zipCode("01310200")
                 .street("Rua B")
@@ -179,12 +122,28 @@ class CustomerRepositoryTest {
         assertThat(result.getContent().get(1).getName()).isEqualTo("Older");
     }
 
+    private Customer buildCustomer(String name, String email, String document,
+                                    String street, String neighborhood) {
+        return Customer.builder()
+                .name(name)
+                .email(email)
+                .document(document)
+                .phone("11988887777")
+                .zipCode("01310200")
+                .street(street)
+                .neighborhood(neighborhood)
+                .city("Sao Paulo")
+                .state("SP")
+                .build();
+    }
+
     private void saveCustomers(int count) {
         for (int i = 1; i <= count; i++) {
+            String cpf = generateValidCpf(i);
             Customer customer = Customer.builder()
                     .name("Customer " + i)
                     .email("customer" + i + "@example.com")
-                    .document(String.format("%011d", i))
+                    .document(cpf)
                     .phone("11988887777")
                     .zipCode("01310200")
                     .street("Rua " + i)
@@ -194,5 +153,28 @@ class CustomerRepositoryTest {
                     .build();
             customerRepository.save(customer);
         }
+    }
+
+    private static String generateValidCpf(int seed) {
+        String base = String.format("%09d", (500000000 + seed) % 1000000000);
+        int[] digits = new int[11];
+        for (int i = 0; i < 9; i++) {
+            digits[i] = base.charAt(i) - '0';
+        }
+        int sum = 0;
+        for (int i = 0; i < 9; i++) {
+            sum += digits[i] * (10 - i);
+        }
+        digits[9] = 11 - (sum % 11);
+        if (digits[9] >= 10) digits[9] = 0;
+        sum = 0;
+        for (int i = 0; i < 10; i++) {
+            sum += digits[i] * (11 - i);
+        }
+        digits[10] = 11 - (sum % 11);
+        if (digits[10] >= 10) digits[10] = 0;
+        StringBuilder sb = new StringBuilder();
+        for (int d : digits) sb.append(d);
+        return sb.toString();
     }
 }

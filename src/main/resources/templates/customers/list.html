@@ -32,6 +32,32 @@
             text-decoration: none;
         }
         .logout-btn:hover { background: #dc2626; }
+        .btn-new {
+            padding: .5rem 1rem;
+            background: #2563eb;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: .875rem;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+        }
+        .btn-new:hover { background: #1d4ed8; }
+        .header-right { display: flex; gap: .75rem; align-items: center; }
+        .alert-success {
+            background: #ecfdf5;
+            border-left: 4px solid #10b981;
+            color: #065f46;
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 1.5rem;
+            font-size: .9rem;
+        }
+        .clickable-row { cursor: pointer; }
+        .clickable-row:hover { background: #f9fafb; }
         .container {
             max-width: 1100px;
             margin: 2rem auto;
@@ -180,12 +206,17 @@
 <body>
 <div class="header">
     <h1>Gestão de Clientes</h1>
-    <form th:action="@{/logout}" method="post" style="margin:0;">
-        <button type="submit" class="logout-btn">Sair</button>
-    </form>
+    <div class="header-right">
+        <a th:if="${isAdmin}" th:href="@{/customers/new}" class="btn-new">Novo Cliente</a>
+        <form th:action="@{/logout}" method="post" style="margin:0;">
+            <button type="submit" class="logout-btn">Sair</button>
+        </form>
+    </div>
 </div>
 
 <div class="container">
+    <div th:if="${successMessage}" class="alert-success" th:text="${successMessage}"></div>
+
     <div class="card">
         <form th:action="@{/customers}" method="get" class="search-form">
             <input type="text" name="q" class="search-input"
@@ -231,7 +262,9 @@
                 </tr>
                 </thead>
                 <tbody>
-                <tr th:each="customer : ${page.content}">
+                <tr th:each="customer : ${page.content}"
+                    class="clickable-row"
+                    th:onclick="'window.location.href=\'' + @{/customers/{id}(id=${customer.id})} + '\''">
                     <td th:text="${customer.name}">Nome</td>
                     <td th:text="${customer.email}">email@exemplo.com</td>
                     <td th:text="${customer.document}">000.000.000-00</td>
