@@ -1,6 +1,33 @@
 # Usar skills
-[] Grill me
-[] PRD writer
+
+/prd-writer
+
+• Você chama pelo nome na mensagem. Exemplos:
+
+  Use a skill prd-writer para criar um PRD do produto X.
+
+  ou:
+
+  prd-writer: gere um PRD para [descrição do produto].
+  Salve em docs/prd.md.
+
+  O ideal é passar 3 coisas:
+
+  Use prd-writer.
+
+  PROJECT_NAME: Meu Produto
+  OUTPUT_FOLDER: docs
+  PRD_PATH: docs/prd-meu-produto.md
+  PRODUCT_DESCRIPTION: [explique a ideia, problema, público, funcionalidades esperadas]
+
+  Também funciona por intenção, sem nome explícito:
+
+  Crie um PRD completo para uma plataforma que...
+
+  Nesse caso eu devo detectar que a prd-writer se aplica, fazer perguntas de clarificação e depois gerar o PRD.
+
+
+
 
 # Instalando Skills 
 
